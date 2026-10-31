@@ -38,6 +38,65 @@ public interface Cache<K, V> {
 | `get` returns `Optional<V>` | Explicit absence | No "is null a miss or a cached null?" ambiguity |
 | `null` key or value → `NullPointerException` via `Objects.requireNonNull` | Fail fast | The bug surfaces where it was made, not three layers later |
 
+### Diagrams
+
+**Who can see what.** The user only ever touches the two public types. `LocalCache` is hidden behind them.
+
+```mermaid
+classDiagram
+    direction LR
+    class Cache~K,V~ {
+        <<interface, public>>
+        +get(K key) Optional~V~
+        +put(K key, V value)
+        +remove(K key)
+        +clear()
+        +size() int
+    }
+    class Hotshelf {
+        <<public, final>>
+        +newCache()$ Cache~K,V~
+    }
+    class LocalCache~K,V~ {
+        <<package-private, final>>
+        -Map~K,V~ entries
+    }
+    class YourService
+    YourService --> Hotshelf : asks for a cache
+    YourService --> Cache : depends only on this
+    Hotshelf ..> LocalCache : creates
+    LocalCache ..|> Cache : implements
+```
+
+**Why the interface pays off.** Every later iteration swaps what sits behind `Cache`, and `YourService` never changes.
+
+```mermaid
+flowchart LR
+    S[YourService] --> C{{Cache&lt;K,V&gt;}}
+    C -.01.-> L1[LocalCache: HashMap]
+    C -.02.-> L2[LocalCache + LRU policy]
+    C -.03.-> L3[... + TTL via Ticker]
+    C -.04.-> L4[ConcurrentCache wrapping LocalCache]
+```
+
+**Hit vs miss, as the API expresses it.**
+
+```mermaid
+sequenceDiagram
+    participant S as YourService
+    participant C as Cache
+    participant DB as Database
+    S->>C: get("user:42")
+    alt hit
+        C-->>S: Optional.of(user)
+    else miss
+        C-->>S: Optional.empty()
+        S->>DB: load user 42
+        DB-->>S: user
+        S->>C: put("user:42", user)
+    end
+```
+
 **Rejected:** extending `java.util.Map`. `Map` has about 25 methods (`entrySet`, `containsValue`, ...) that are hard
 or meaningless to support efficiently once eviction and expiry exist, so it would be an LSP violation waiting to happen.
 
