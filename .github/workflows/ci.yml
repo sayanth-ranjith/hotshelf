@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel a running build when a newer commit lands on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write        # lets the report step publish a check with per-test results
+    strategy:
+      fail-fast: false     # finish every JDK so you see all failures, not just the first
+      matrix:
+        java: ['21', '25'] # minimum supported + latest LTS
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Publish test report
+        if: ${{ !cancelled() }}  # report failures too, that's when you need it most
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+          check_name: Test report (JDK ${{ matrix.java }})
+          detailed_summary: true
+          include_passed: true
+          require_tests: true
+
+      - name: Upload raw test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports-jdk${{ matrix.java }}
+          path: '**/target/surefire-reports/'
+          retention-days: 14

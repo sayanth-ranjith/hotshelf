@@ -79,3 +79,26 @@ implementation moves to its own package, `Hotshelf` can only create it if it is 
 
 **Consequences.** API and implementation are visibly separate. `internal` classes that need cross-package access are
 `public` but documented as non-API. Tests run on the module path, and Surefire patches them into the module.
+
+---
+
+## ADR-006: CI on GitHub Actions, with test results shown in GitHub
+**Status:** Accepted (chore, after iteration 01)
+
+**Context.** Tests only ran on the author's machine. A PR could be merged with a red build, and the only test report
+was console output.
+
+**Decision.**
+- GitHub Actions runs `./mvnw verify` on every push to `main` and every PR.
+- It uses a JDK matrix: 21 (the minimum we support) and 25 (latest LTS). That catches "works on my JDK" problems early.
+- `mikepenz/action-junit-report` turns Surefire's `TEST-*.xml` into a GitHub check, with failure annotations, and a
+  job summary listing every test. The raw XML is uploaded as an artifact.
+
+**Rejected.**
+- *External dashboards (Develocity build scans, Codecov test analytics).* Big projects such as Spring, JUnit and
+  Caffeine use them. They need an account or token and add little for one module with 37 tests. Revisit at v1 release.
+- *Surefire HTML report only (`maven-surefire-report-plugin`).* You'd have to download a zip to see results.
+  The check plus summary shows them in the PR itself.
+
+**Consequences.** Every PR shows a green or red check per JDK. Third-party actions are pinned by major version; pin by
+commit SHA if supply-chain hardening matters later.
