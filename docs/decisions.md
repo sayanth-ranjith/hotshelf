@@ -54,3 +54,28 @@ Nanoseconds from `System.nanoTime()` are used rather than `System.currentTimeMil
 and is not affected by wall-clock changes such as NTP sync or daylight saving.
 
 **Consequences.** TTL tests are instant and deterministic.
+
+---
+
+## ADR-005: API package plus an unexported `internal` package
+**Status:** Accepted (iteration 01)
+
+**Context.** Users should depend only on the API (`Cache`, `Hotshelf`), never on implementation classes, so we can
+rewrite them in every iteration. With everything in one package, `LocalCache` can be package-private. Once the
+implementation moves to its own package, `Hotshelf` can only create it if it is `public`, and then anyone could.
+
+**Decision.**
+- `io.github.sayanth_ranjith.hotshelf` holds the public API.
+- `io.github.sayanth_ranjith.hotshelf.internal` holds implementations.
+- `module-info.java` exports only the API package. On the module path, using `internal` is a compile error.
+  On the classpath, the `internal` name signals "not API", the same convention JDK and Netty use.
+- Package names are lowercase, and the GitHub name's hyphen becomes `_`, because `-` isn't allowed in Java identifiers.
+
+**Rejected.**
+- *One flat package with package-private classes.* It hides implementations perfectly, but becomes a single crowded
+  folder by v2 (policies, decorators, stats, loaders).
+- *`core` / `impl` names.* `core` repeats the module name (`hotshelf-core`) and says nothing about visibility.
+  `internal` tells users not to touch it.
+
+**Consequences.** API and implementation are visibly separate. `internal` classes that need cross-package access are
+`public` but documented as non-API. Tests run on the module path, and Surefire patches them into the module.

@@ -1,5 +1,7 @@
 package io.github.sayanth_ranjith.hotshelf;
 
+import io.github.sayanth_ranjith.hotshelf.internal.LocalCache;
+
 /**
  * Entry point for creating caches.
  */

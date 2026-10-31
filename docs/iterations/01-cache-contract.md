@@ -21,8 +21,8 @@ public interface Cache<K, V> {
     int size();
 }
 ```
-- `LocalCache<K, V>` (package-private) backed by a `HashMap<K, V>`.
-- A temporary factory method `Hotshelf.newCache()` so tests don't depend on the package-private class name.
+- `LocalCache<K, V>` in the unexported `internal` package, backed by a `HashMap<K, V>`.
+- A temporary factory method `Hotshelf.newCache()` so users and tests don't depend on the implementation class name.
   The builder replaces it in iteration 02.
 
 **Out**
@@ -33,10 +33,22 @@ public interface Cache<K, V> {
 
 | Decision | Pattern / principle | Why |
 |---|---|---|
-| `Cache` is an interface; `LocalCache` is package-private | **Program to an interface**, information hiding | Users depend on the contract. We can rewrite internals freely (we will, in every iteration). |
+| `Cache` is an interface; `LocalCache` lives in `internal`, which `module-info.java` doesn't export | **Program to an interface**, information hiding | Users depend on the contract. We can rewrite internals freely (we will, in every iteration). |
 | Only 5 methods | **ISP** | Every method is a promise we must keep through all future iterations. Fewer promises, fewer chances to break one. |
 | `get` returns `Optional<V>` | Explicit absence | No "is null a miss or a cached null?" ambiguity |
 | `null` key or value → `NullPointerException` via `Objects.requireNonNull` | Fail fast | The bug surfaces where it was made, not three layers later |
+
+### Packages (ADR-005)
+
+```
+io.github.sayanth_ranjith.hotshelf            exported: what users import
+├── Cache                                     the contract
+├── Hotshelf                                  the entry point
+└── internal                                  NOT exported: free to change
+    └── LocalCache
+```
+Later iterations add API types to the root package (`CacheStats`, `Ticker`) and implementation types to `internal`
+(`ConcurrentCache`, `LruPolicy`, ...). A sub-package like `internal.eviction` is created only once it holds several classes.
 
 ### Diagrams
 
@@ -58,7 +70,7 @@ classDiagram
         +newCache()$ Cache~K,V~
     }
     class LocalCache~K,V~ {
-        <<package-private, final>>
+        <<internal, not exported>>
         -Map~K,V~ entries
     }
     class YourService

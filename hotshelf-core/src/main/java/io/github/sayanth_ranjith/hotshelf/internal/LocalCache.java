@@ -1,4 +1,6 @@
-package io.github.sayanth_ranjith.hotshelf;
+package io.github.sayanth_ranjith.hotshelf.internal;
+
+import io.github.sayanth_ranjith.hotshelf.Cache;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -7,8 +9,10 @@ import java.util.Optional;
 
 /**
  * Unbounded, single-threaded {@link Cache} backed by a {@link HashMap}. Not thread-safe.
+ * <p>
+ * Public only so {@link io.github.sayanth_ranjith.hotshelf.Hotshelf} can create it. Not part of the API.
  */
-final class LocalCache<K, V> implements Cache<K, V> {
+public final class LocalCache<K, V> implements Cache<K, V> {
 
 	private final Map<K, V> entries = new HashMap<>();
 
