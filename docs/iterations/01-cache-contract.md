@@ -129,9 +129,9 @@ class LocalCacheTest extends CacheContractTest { ... }
 Later implementations, like the thread-safe decorator, extend the same class and inherit all the checks for free.
 
 ## Definition of done
-- [ ] `Cache` interface with Javadoc stating each method's contract, including null behaviour.
-- [ ] `LocalCache` passes `CacheContractTest`.
-- [ ] Overwriting a key doesn't change `size()`. `remove` of a missing key is a no-op.
+- [x] `Cache` interface with Javadoc stating each method's contract, including null behaviour.
+- [x] `LocalCache` passes `CacheContractTest`.
+- [x] Overwriting a key doesn't change `size()`. `remove` of a missing key is a no-op.
 
 ## Pitfalls
 - Javadoc that says *how* (e.g. "uses a HashMap") instead of *what* (the contract). Implementations will change, and the contract shouldn't.
