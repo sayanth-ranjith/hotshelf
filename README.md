@@ -3,6 +3,7 @@
 > **Hot data, within arm's reach.**
 > A lightweight, thread-safe caching library for Java and Spring Boot, built from scratch to understand how caches really work.
 
+[![CI](https://github.com/sayanth-ranjith/hotshelf/actions/workflows/ci.yml/badge.svg)](https://github.com/sayanth-ranjith/hotshelf/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-yellow)

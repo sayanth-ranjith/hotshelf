@@ -43,6 +43,9 @@ shipping working code. So:
 - Build and run the tests: `.\mvnw.cmd verify` (PowerShell) or `./mvnw verify` (bash).
 - Run a single test class: `.\mvnw.cmd test -Dtest=BuildSanityTest`. Run a single method: `-Dtest=BuildSanityTest#junitAndAssertjAreWired`.
 - There is no linter or formatter configured. Source files use tabs for indentation (Initializr default).
+- CI: `.github/workflows/ci.yml` runs `./mvnw verify` on JDK 21 and 25 for every push to `main` and every PR,
+  then publishes per-test results (a "Test report" check on the PR, and a summary table on the run page) and
+  uploads the raw Surefire XML as an artifact. Keep the build green on both JDKs.
 - After iteration 00 the build is multi-module. To build or test only the core module, add `-pl hotshelf-core`.
 
 ## Current state vs target architecture
