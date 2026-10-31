@@ -61,7 +61,7 @@ a `FakeTicker` lets a test "wait 10 minutes" in a microsecond, which is how we t
 | **Program to an interface** | `Cache<K, V>` | Users and the Spring adapter depend on the contract, not on `LocalCache` | 01 |
 | **Strategy** | `EvictionPolicy` | Swap LRU / LFU / FIFO without touching the store | 02 |
 | **Builder** | `Hotshelf.builder()` | Many optional settings; avoid telescoping constructors; validate once in `build()` | 02 |
-| **Static factory / Facade** | `Hotshelf` | One discoverable entry point; hides package-private implementation classes | 02, 07 |
+| **Static factory / Facade** | `Hotshelf` | One discoverable entry point; hides the implementation classes in the unexported `internal` package | 02, 07 |
 | **Dependency injection (constructor)** | `LocalCache(policy, ticker, stats)` | Testability, DIP | 02–05 |
 | **Decorator** | `ConcurrentCache` wraps `LocalCache` | Add thread safety without touching or duplicating the core logic | 04 |
 | **Null Object** | `StatsCounter.disabled()` | "Stats off" without `if (stats != null)` checks scattered through the code | 05 |
@@ -95,5 +95,6 @@ combination (`LruTtlConcurrentCache`...). Composition lets the builder **mix and
 
 - Immutable where possible (`record`s for config and stats).
 - Fail fast: validate builder arguments in `build()` and throw `IllegalArgumentException` with a clear message.
-- Package-private by default; public only when it is part of the API.
+- Package-private by default. Public API lives in the root package; anything public in `internal` is public only for
+  cross-package wiring and is not exported by `module-info.java` (ADR-005).
 - Each lock documents what it guards.

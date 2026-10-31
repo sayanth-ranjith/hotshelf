@@ -14,7 +14,7 @@ Measure, polish and tag **v0.1.0**. The README's planned API works exactly as wr
 - `hotshelf-benchmarks` module (JMH) comparing hotshelf vs `ConcurrentHashMap` (no eviction, the upper bound) vs Caffeine,
   with 1, 4 and 8 threads, for read-heavy and mixed workloads.
 - Public API audit: only `Cache`, `CacheStats`, `Hotshelf`, `HotshelfBuilder`, `EvictionPolicyType` (and `Ticker` if exposed)
-  are public. Everything else is package-private.
+  are in the exported API package. Everything else is in `internal` or package-private.
 - Javadoc on every public type and method.
 - README: tick the v1 boxes, add a "Getting started" section and a benchmark results table.
 - Fill in the empty learning logs and write a short v1 retrospective.

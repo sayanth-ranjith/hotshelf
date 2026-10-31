@@ -53,7 +53,7 @@ Plugin and test-library versions are pinned in the parent. No cache code exists 
 Check `git log` and the README roadmap checkboxes to see which iterations have landed.
 
 **Target v1 design.** Each piece arrives in the iteration shown and is described in `docs/iterations/`:
-- `Cache<K, V>` is the public interface (01). `LocalCache` is the package-private, single-threaded implementation.
+- `Cache<K, V>` is the public interface (01). `LocalCache` (in `internal`) is the single-threaded implementation.
   A shared abstract **contract test** suite runs against every implementation.
 - `Hotshelf.builder()` is the fluent **Builder** and the only way to get a cache (02). It replaces the temporary `Hotshelf.newCache()`.
 - `EvictionPolicy` is a **Strategy** (02). LRU is O(1): a `HashMap` plus a hand-written doubly linked list.
@@ -70,7 +70,11 @@ Check `git log` and the README roadmap checkboxes to see which iterations have l
 
 - Root package: `io.github.sayanth_ranjith.hotshelf`.
 - The **core library has zero runtime dependencies**: no Spring, no Guava. Spring lives only in the future starter module.
-- Keep the public API small: interfaces, the `Hotshelf` entry point, value types. Implementation classes are package-private.
+- Keep the public API small: interfaces, the `Hotshelf` entry point, value types (ADR-005).
+  - `io.github.sayanth_ranjith.hotshelf` is the API package and the only one `module-info.java` exports.
+  - `io.github.sayanth_ranjith.hotshelf.internal` holds implementations. A class there is `public` only when another
+    package must reach it (e.g. `Hotshelf` creating `LocalCache`); otherwise package-private.
+  - Package names are all lowercase; the hyphen in the GitHub name becomes `_` (`sayanth_ranjith`).
 - `null` keys and values are rejected with `NullPointerException`. "Absent" is expressed with `Optional`.
 - Time is never read directly. Use the `Ticker` abstraction so tests can control time. **No `Thread.sleep` in tests.**
 - Tests: JUnit 5 and AssertJ. Every behaviour in an iteration's definition of done has a test.
