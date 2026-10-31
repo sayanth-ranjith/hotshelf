@@ -140,4 +140,33 @@ Later implementations, like the thread-safe decorator, extend the same class and
 - `remove` returning `Optional<V>`, plus `putIfAbsent`. Add them only when a use case appears.
 
 ## Learning log
-*(fill in after the iteration)*
+**What changed**
+- `Cache<K, V>` (API package): five methods, Javadoc states the contract (what, not how), including null behaviour.
+- `Hotshelf.newCache()` (API package): temporary static factory; the builder replaces it in iteration 02.
+- `internal.LocalCache` : unbounded, single-threaded, `HashMap`-backed. Not exported by `module-info.java`.
+- `module-info.java` exports only `io.github.sayanth_ranjith.hotshelf` (ADR-005).
+- Tests: abstract `CacheContractTest` (17 rules), `LocalCacheTest` and `HotshelfTest` plug into it. 37 tests in total.
+
+**Patterns and principles**
+- *Program to an interface / DIP.* Callers depend on `Cache`, never on `LocalCache`. Every later iteration rewrites
+  what sits behind the interface (LRU, TTL, locking) without touching callers.
+- *ISP.* Five methods only. Each public method is a promise we must keep through eviction, expiry and locking.
+- *Explicit absence (ADR-002).* `Optional<V>` separates a miss from a value; nulls fail fast with an NPE naming the argument.
+- *LSP, checked by tests.* The contract suite is the proof that any `Cache` can replace any other. It is a
+  **Template Method**: the abstract class owns the 17 tests and leaves `newCache()` to each subclass.
+- *Information hiding at module level.* Splitting packages forced `LocalCache` to be `public` so `Hotshelf` can
+  create it; `module-info.java` hides it again for module-path users. On the classpath, the `internal` name is the warning.
+
+**Rejected alternatives**
+- `Cache extends Map`: about 25 methods (`entrySet`, `containsValue`, live `keySet`) that are slow or misleading once
+  entries can be evicted or expire. Code written for a `Map` would break, an LSP violation.
+- One flat package with package-private classes: perfect hiding today, a crowded folder by v2.
+- A `core` package for `Cache`: repeats the module name and says nothing about visibility.
+- Hand-written tests per implementation: 17 tests copied per class, and the copies drift apart.
+
+**Gotchas hit**
+- The package split's visibility trade-off (above) wasn't in the original plan; recorded as ADR-005.
+- PowerShell 5.1 `Set-Content -Encoding utf8` writes a byte-order mark, and `javac` rejects it as an illegal
+  character. Edit Java files with the editor or bash, not PowerShell redirection.
+- A test that has never failed proves nothing. Temporarily turning `remove` into a no-op made four tests fail
+  (two per implementation), confirming the suite really checks `remove`.
