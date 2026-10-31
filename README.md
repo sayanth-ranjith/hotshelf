@@ -65,12 +65,14 @@ CacheStats stats = users.stats();   // hits, misses, hitRate, evictions
 
 ## Roadmap
 
+> 📚 The step-by-step plan, with the design rationale for each step, lives in [`docs/`](docs/README.md). Start with [`docs/roadmap.md`](docs/roadmap.md).
+
 ### v1: The core shelf
 - [ ] `Cache<K, V>` interface: `get`, `put`, `remove`, `clear`, `size`
 - [ ] **LRU eviction** in O(1) using a `HashMap` plus a doubly linked list
 - [ ] **Max size** limit
 - [ ] **TTL expiry** (`expireAfterWrite`), lazy on read
-- [ ] **Thread safety** with `ReentrantReadWriteLock`
+- [ ] **Thread safety** with a lock-based decorator (and why a read/write lock doesn't help LRU, see [ADR-003](docs/decisions.md))
 - [ ] **Loading cache**: `get(key, loader)` with stampede protection
 - [ ] **Stats**: hits, misses, hit rate, evictions
 - [ ] Fluent **builder**
