@@ -42,14 +42,43 @@ and configures repackaging that a plain library doesn't want. A note on versions
 while the README says **3.x**. We'll settle that in v3 and update the README to match.
 
 ## Definition of done
-- [ ] `java -version` shows 21 and `.\mvnw.cmd verify` passes.
-- [ ] `hotshelf-core` has no `<dependency>` without `<scope>test</scope>`.
-- [ ] No Spring classes remain in the repo.
-- [ ] README tech stack and roadmap still accurate.
+- [x] `java -version` shows 21 and `.\mvnw.cmd verify` passes.
+- [x] `hotshelf-core` has no `<dependency>` without `<scope>test</scope>`.
+- [x] No Spring classes remain in the repo.
+- [x] README tech stack and roadmap still accurate.
 
 ## Pitfalls
 - `JAVA_HOME` still pointing at 17 while `java` on PATH is 21, or the other way round. Maven uses `JAVA_HOME`.
 - Leaving `HELP.md` around. It's Initializr boilerplate and `.gitignore` already ignores it, so just delete it.
 
 ## Learning log
-*(fill in after the iteration)*
+**What changed**
+- Root `pom.xml` is now `hotshelf-parent` (`<packaging>pom</packaging>`). It holds metadata (MIT license, SCM,
+  developer), the Java level (`maven.compiler.release=21`), and pinned versions of JUnit, AssertJ and the
+  compiler / surefire / jar plugins.
+- `hotshelf-core/` is the only module. Its `pom.xml` declares exactly two dependencies, both `test`-scoped.
+- `HotshelfApplication`, its `@SpringBootTest`, `application.properties` and `HELP.md` are gone.
+- `BuildSanityTest` moved into core and now asserts Java **21**, not 17.
+- `package-info.java` gives the package a home (git doesn't track empty folders) and a one-line description.
+
+**Patterns and principles**
+- *Separation of concerns at build level.* The parent knows *how to build*. Core knows *what the library is*.
+  A future starter module gets Spring on its own classpath and core still cannot see it, so ADR-001 is
+  enforced by the compiler, not by discipline.
+- *Single source of truth (DRY) for versions.* `<dependencyManagement>` and `<pluginManagement>` only declare
+  versions. A module still has to ask for a dependency to get it. That is the difference from putting
+  `<dependencies>` in the parent, which would push JUnit into every module whether it wants it or not.
+- *BOM import.* `junit-bom` keeps `junit-jupiter-api`, `-engine` and `junit-platform-*` on matching versions.
+  We pin one number, not five.
+
+**Rejected alternatives**
+- *Keep `spring-boot-starter-parent` as parent.* It's built for apps: it manages hundreds of versions we don't
+  use and configures repackaging into an executable jar. A library should not inherit any of that.
+- *Single module, add modules later.* Cheaper today, but the "no Spring in core" rule would only be a convention
+  until then, and moving `src/` later touches every file.
+- *`maven.compiler.source/target` instead of `release`.* `release` also checks that you only call JDK 21 APIs,
+  so building on a newer JDK can't sneak in a newer API by accident.
+
+**Gotchas hit**
+- The system PATH still resolves `java` to JDK 17. Maven uses `JAVA_HOME` (JDK 21), so the build is fine; the
+  first `BuildSanityTest` assertion would fail loudly if that ever changed.

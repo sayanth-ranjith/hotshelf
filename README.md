@@ -126,6 +126,12 @@ CacheStats stats = users.stats();   // hits, misses, hitRate, evictions
 
 ---
 
+## License
+
+[MIT](LICENSE)
+
+---
+
 ## Author
 
 Built by [Sayanth](https://github.com/sayanth-ranjith), a backend developer learning caching from the ground up.
