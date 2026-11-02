@@ -33,7 +33,7 @@ Cache<String, User> users = Hotshelf.<String, User>builder()
 ## Design
 
 ```java
-interface EvictionPolicy<K> {          // package-private
+public interface EvictionPolicy<K> {   // internal.eviction, not exported
     void recordInsert(K key);
     void recordAccess(K key);
     void recordRemoval(K key);

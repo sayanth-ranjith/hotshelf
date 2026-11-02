@@ -1,6 +1,5 @@
-package io.github.sayanth_ranjith.hotshelf.internal;
+package io.github.sayanth_ranjith.hotshelf.cache;
 
-import io.github.sayanth_ranjith.hotshelf.Cache;
 import io.github.sayanth_ranjith.hotshelf.CacheContractTest;
 
 class LocalCacheTest extends CacheContractTest {

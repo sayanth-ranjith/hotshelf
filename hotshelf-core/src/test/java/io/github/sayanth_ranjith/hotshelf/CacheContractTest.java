@@ -3,6 +3,7 @@ package io.github.sayanth_ranjith.hotshelf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
+import io.github.sayanth_ranjith.hotshelf.cache.Cache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
