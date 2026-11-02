@@ -1,4 +1,4 @@
-package io.github.sayanth_ranjith.hotshelf;
+package io.github.sayanth_ranjith.hotshelf.cache;
 
 import java.util.Optional;
 

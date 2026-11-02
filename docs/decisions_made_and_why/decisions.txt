@@ -1,0 +1,9 @@
+===Tracking local notes===
+
+If you look at the repo we have a final class called NoEvictionPolicy.
+This decision was made so we dont have to do a null check on each method on eviction policy.
+Your default consturctor would always have an instance of NoEvictionPolicy, and
+your parameterized constructor would have an instance of the eviction policy you want to use.
+Its a pattern called Null Object pattern.
+
+====================================================================

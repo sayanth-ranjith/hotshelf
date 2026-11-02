@@ -2,6 +2,8 @@ package io.github.sayanth_ranjith.hotshelf;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.sayanth_ranjith.hotshelf.cache.Cache;
+import io.github.sayanth_ranjith.hotshelf.cache.Hotshelf;
 import org.junit.jupiter.api.Test;
 
 /**
