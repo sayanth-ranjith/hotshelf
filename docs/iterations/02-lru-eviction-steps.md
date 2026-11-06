@@ -12,10 +12,10 @@ The design, the patterns and the definition of done live in the main iteration d
 |---|---|---|---|
 | 1 | `EvictionPolicy` interface | Strategy: a contract for "who goes next" | ☑ |
 | 2 | Bounded `LocalCache` | Composition + DIP: the cache only knows the interface; Null Object for "no eviction" | ☑ |
-| 3 | LRU list: insert + victim | Doubly linked list with sentinel nodes | ☐ |
-| 4 | LRU access: move to head | O(1) unlink, because we hold the node | ☐ |
-| 5 | LRU removal and clear | Keeping map and list in sync | ☐ |
-| 6 | Check LRU against `LinkedHashMap` | Differential testing against a trusted reference | ☐ |
+| 3 | `LruEvictionPolicy` on `LinkedHashMap` | Access-ordered map = O(1) LRU from the JDK (ADR-008) | ☑ |
+| ~~4~~ | ~~LRU access: move to head~~ | Folded into step 3 | — |
+| ~~5~~ | ~~LRU removal and clear~~ | Folded into step 3 | — |
+| ~~6~~ | ~~Check LRU against `LinkedHashMap`~~ | Dropped: comparing `LinkedHashMap` with itself proves nothing | — |
 | 7 | `Hotshelf.builder()` | Builder + validation; `newCache()` is removed | ☐ |
 | 8 | Docs and PR | Learning log, README boxes, CLAUDE.md state | ☐ |
 
@@ -68,6 +68,11 @@ The design, the patterns and the definition of done live in the main iteration d
 **Commit:** `Iteration 02 step 2: bounded LocalCache evicts through EvictionPolicy`
 
 ---
+
+> **Change of plan (ADR-008).** Steps 3 to 6 below described a hand-written doubly linked list. We chose to back
+> `LruEvictionPolicy` with `LinkedHashMap(accessOrder = true)` instead, so the focus stays on caching concepts.
+> Step 3 now delivers the whole policy and its tests; steps 4 to 6 are skipped. The original text is kept for the
+> optional hand-written deep dive listed under "Later" in [02-lru-eviction.md](02-lru-eviction.md).
 
 ## Step 3: LRU list, insert and victim
 
