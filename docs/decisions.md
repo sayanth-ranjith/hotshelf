@@ -102,3 +102,44 @@ was console output.
 
 **Consequences.** Every PR shows a green or red check per JDK. Third-party actions are pinned by major version; pin by
 commit SHA if supply-chain hardening matters later.
+
+---
+
+## ADR-007: Eviction code lives in `internal.eviction`
+**Status:** Accepted (iteration 02)
+
+**Context.** Iteration 01 said a sub-package such as `internal.eviction` is created only once it holds several classes.
+Iteration 02 adds `EvictionPolicy`, `NoEvictionPolicy` and soon `LruEvictionPolicy`, with FIFO and LFU to follow in
+iteration 08. Mixed in with `LocalCache`, `internal` would turn into one flat folder of everything.
+
+**Decision.** One package per concern under `internal`. `internal.eviction` holds the `EvictionPolicy` interface and all
+its implementations side by side (flat, no `impl` sub-package). `LocalCache` stays in `internal`. Later concerns
+(expiry, stats, concurrency) get their own packages when they arrive.
+
+**Rejected.**
+- *Interface in `internal.eviction`, implementations in `internal.eviction.impl`.* Java has no sub-package access, so
+  every implementation would have to be `public`. The extra package adds a folder level and no protection.
+- *Keep everything in `internal`.* The types could stay package-private, but the package would mix storage and policy.
+
+**Consequences.** `EvictionPolicy` and `NoEvictionPolicy` are `public` because `LocalCache` uses them from another
+package. They remain non-API: `module-info.java` does not export `internal.eviction` (ADR-005). Implementations that
+`LocalCache` never creates directly can stay package-private. Tests that need a fake policy implement the public interface.
+
+---
+
+## ADR-008: LRU is backed by `LinkedHashMap` for now
+**Status:** Accepted (iteration 02)
+
+**Context.** The plan was to hand-write the LRU list (`HashMap<K, Node>` plus a doubly linked list with sentinels).
+That is a data-structures exercise more than a caching one, and it was competing for attention with the cache
+concepts this project is about (bounding, eviction, expiry, concurrency, stats, loading).
+
+**Decision.** `LruEvictionPolicy` wraps a `LinkedHashMap<K, Boolean>` with `accessOrder = true`. Every `get` or `put`
+of a present key moves it to the end, so `firstEntry()` is always the least recently used key. All operations are O(1).
+
+**Rejected (for now).** *Hand-written doubly linked list.* Same complexity, more code, more ways to get the map and list
+out of sync. Kept as an optional deep dive (iteration 02 "Later").
+
+**Consequences.** Steps 4 to 6 of the iteration 02 plan are dropped, including the differential test, which would
+only compare `LinkedHashMap` with itself. Because `LocalCache` depends only on `EvictionPolicy` (DIP), the hand-written
+version can replace this one later without touching `LocalCache`.

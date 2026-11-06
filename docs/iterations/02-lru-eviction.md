@@ -22,7 +22,7 @@ Cache<String, User> users = Hotshelf.<String, User>builder()
 
 ## Scope
 **In**
-- `EvictionPolicy<K>` interface and `LruEvictionPolicy<K>` implementation with a hand-written doubly linked list, using sentinel head and tail nodes.
+- `EvictionPolicy<K>` interface and `LruEvictionPolicy<K>` implementation backed by `LinkedHashMap(accessOrder = true)` (ADR-008).
 - `LocalCache` takes an `EvictionPolicy` and a `maximumSize` in its constructor.
 - `HotshelfBuilder<K, V>` with `maximumSize(long)` and `build()`, created via `Hotshelf.builder()`. `Hotshelf.newCache()` is removed.
 - `EvictionPolicyType` enum on the builder (`LRU` only for now), matching the README's `.evictionPolicy(...)`.
@@ -74,6 +74,11 @@ clearer and keeps the Strategy clean. If the iteration 07 benchmarks show it mat
 - Forgetting to update *both* the map and the list on every path. Most LRU bugs are a map and list that disagree.
 - Evicting *before* checking whether the key already exists, which evicts an entry for no reason on an update.
 - `get` of a missing key calling `recordAccess` and creating a node.
+
+## Later
+- Hand-written `LruEvictionPolicy`: `HashMap<K, Node>` plus a doubly linked list with sentinel head and tail nodes,
+  checked by a differential test against `LinkedHashMap`. Swapping it in must not change `LocalCache` (an OCP demo).
+  The original steps 3 to 6 in [02-lru-eviction-steps.md](02-lru-eviction-steps.md) describe it.
 
 ## Learning log
 *(fill in after the iteration)*
