@@ -16,7 +16,7 @@ The design, the patterns and the definition of done live in the main iteration d
 | ~~4~~ | ~~LRU access: move to head~~ | Folded into step 3 | — |
 | ~~5~~ | ~~LRU removal and clear~~ | Folded into step 3 | — |
 | ~~6~~ | ~~Check LRU against `LinkedHashMap`~~ | Dropped: comparing `LinkedHashMap` with itself proves nothing | — |
-| 7 | `Hotshelf.builder()` | Builder + validation; `newCache()` is removed | ☐ |
+| 7 | `Hotshelf.builder()` | Builder + validation; `newCache()` is removed | ☑ |
 | 8 | Docs and PR | Learning log, README boxes, CLAUDE.md state | ☐ |
 
 ---
@@ -155,9 +155,14 @@ so it is the perfect reference.
   `internal` turns `(maximumSize, EvictionPolicyType)` into a `LocalCache`. That factory is the *only* place that names `LruEvictionPolicy`.
 - Remove `Hotshelf.newCache()`. `HotshelfTest` switches to the builder.
 
-**Decisions to confirm at this step**
-- Default when `maximumSize` is not set: unbounded (`NoEvictionPolicy`), or require it?
-- `maximumSize <= 0` → `IllegalArgumentException`, thrown from `maximumSize(...)` (fail fast) or from `build()`?
+**Decisions (confirmed)**
+- No `maximumSize` → **unbounded** (`NoEvictionPolicy`), like Caffeine and Guava. Requiring a size would force every caller to invent a number.
+- `maximumSize <= 0` → `IllegalArgumentException` thrown from **`maximumSize(...)`** (fail fast: the stack trace points at the bad line).
+  `build()` keeps only the checks that involve more than one option.
+- `evictionPolicy(...)` without `maximumSize` → `IllegalStateException` from `build()`. A policy on a cache that never fills is a mistake.
+  `maximumSize` without `evictionPolicy` → LRU.
+- The factory is `internal.eviction.EvictionPolicyFactory.create(type)` (a Simple Factory). Its `switch` has no `default`, so adding an enum constant
+  without a matching policy is a compile error.
 
 **Tests**
 - A cache from the builder passes the contract suite.

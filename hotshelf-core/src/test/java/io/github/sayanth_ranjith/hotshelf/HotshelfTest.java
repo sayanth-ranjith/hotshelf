@@ -4,27 +4,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.sayanth_ranjith.hotshelf.cache.Cache;
 import io.github.sayanth_ranjith.hotshelf.cache.Hotshelf;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * A cache from {@link Hotshelf#newCache()} must honour the full contract, whatever class is behind it.
+ * A cache from {@link Hotshelf#builder()} must honour the full contract, whatever class is behind it.
  */
 class HotshelfTest extends CacheContractTest {
 
 	@Override
 	protected Cache<String, String> newCache() {
-		return Hotshelf.newCache();
+		return Hotshelf.<String, String>builder().build();
 	}
 
 	@Test
-	void eachCallReturnsAnIndependentCache() {
-		Cache<String, String> first = Hotshelf.newCache();
-		Cache<String, String> second = Hotshelf.newCache();
+	void eachBuildReturnsAnIndependentCache() {
+		var builder = Hotshelf.<String, String>builder().maximumSize(10);
+		Cache<String, String> first = builder.build();
+		Cache<String, String> second = builder.build();
 
 		first.put("k", "v");
 
 		assertThat(second).isNotSameAs(first);
 		assertThat(second.get("k")).isEmpty();
+	}
+
+	/** A bounded cache from the builder must honour the contract too, while it has room. */
+	@Nested
+	class Bounded extends CacheContractTest {
+
+		@Override
+		protected Cache<String, String> newCache() {
+			return Hotshelf.<String, String>builder().maximumSize(100).build();
+		}
+
 	}
 
 }

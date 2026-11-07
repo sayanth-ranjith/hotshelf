@@ -1,4 +1,4 @@
-package io.github.sayanth_ranjith.hotshelf.internal.eviction;
+package io.github.sayanth_ranjith.hotshelf.internal.eviction.core;
 
 import java.util.Optional;
 
