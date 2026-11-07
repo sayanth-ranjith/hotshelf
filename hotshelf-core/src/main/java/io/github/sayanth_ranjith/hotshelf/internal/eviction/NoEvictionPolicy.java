@@ -1,5 +1,7 @@
 package io.github.sayanth_ranjith.hotshelf.internal.eviction;
 
+import io.github.sayanth_ranjith.hotshelf.internal.eviction.core.EvictionPolicy;
+
 import java.util.Objects;
 import java.util.Optional;
 

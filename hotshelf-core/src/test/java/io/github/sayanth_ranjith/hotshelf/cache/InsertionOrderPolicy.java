@@ -1,6 +1,6 @@
 package io.github.sayanth_ranjith.hotshelf.cache;
 
-import io.github.sayanth_ranjith.hotshelf.internal.eviction.EvictionPolicy;
+import io.github.sayanth_ranjith.hotshelf.internal.eviction.core.EvictionPolicy;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
