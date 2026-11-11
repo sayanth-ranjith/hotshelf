@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/sayanth-ranjith/hotshelf/actions/workflows/ci.yml/badge.svg)](https://github.com/sayanth-ranjith/hotshelf/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-21-orange)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.x-brightgreen)
 ![Status](https://img.shields.io/badge/status-work%20in%20progress-yellow)
 
 ---
@@ -86,7 +86,7 @@ CacheStats stats = users.stats();   // hits, misses, hitRate, evictions
 - [ ] Segmented locking for higher concurrency
 
 ### v3: Spring Boot integration
-- [ ] `hotshelf-spring-boot-starter` with auto-configuration
+- [ ] Spring auto-configuration for hotshelf caches
 - [ ] Works with `@Cacheable`, `@CacheEvict`, `@CachePut`
 - [ ] Configuration via `application.yml`
 - [ ] Micrometer metrics
@@ -122,7 +122,7 @@ CacheStats stats = users.stats();   // hits, misses, hitRate, evictions
 - Java 21
 - Maven
 - JUnit 5
-- Spring Boot 3 (from v3)
+- Spring Boot 4
 - JMH (benchmarks)
 
 ---

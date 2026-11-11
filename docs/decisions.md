@@ -6,7 +6,7 @@ Add a new entry instead of rewriting an old one; mark an old entry *Superseded b
 ---
 
 ## ADR-001: The core library has no Spring (or any) runtime dependency
-**Status:** Accepted (iteration 00)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** The project was generated from Spring Initializr, so the single module depends on Spring Boot and has a
 `main` method. A cache *library* gets embedded in other people's apps. Forcing Spring on them is a heavy, version-conflicting dependency.
@@ -58,7 +58,7 @@ and is not affected by wall-clock changes such as NTP sync or daylight saving.
 ---
 
 ## ADR-005: API package plus an unexported `internal` package
-**Status:** Accepted (iteration 01)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** Users should depend only on the API (`Cache`, `Hotshelf`), never on implementation classes, so we can
 rewrite them in every iteration. With everything in one package, `LocalCache` can be package-private. Once the
@@ -106,7 +106,7 @@ commit SHA if supply-chain hardening matters later.
 ---
 
 ## ADR-007: Eviction code lives in `internal.eviction`
-**Status:** Accepted (iteration 02)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** Iteration 01 said a sub-package such as `internal.eviction` is created only once it holds several classes.
 Iteration 02 adds `EvictionPolicy`, `NoEvictionPolicy` and soon `LruEvictionPolicy`, with FIFO and LFU to follow in
@@ -143,3 +143,35 @@ out of sync. Kept as an optional deep dive (iteration 02 "Later").
 **Consequences.** Steps 4 to 6 of the iteration 02 plan are dropped, including the differential test, which would
 only compare `LinkedHashMap` with itself. Because `LocalCache` depends only on `EvictionPolicy` (DIP), the hand-written
 version can replace this one later without touching `LocalCache`.
+
+---
+
+## ADR-009: One Spring Boot project, no JPMS, packages by concern
+**Status:** Accepted (iteration 02). Supersedes ADR-001, ADR-005 and ADR-007.
+
+**Context.** The parent POM + `hotshelf-core` module, `module-info.java` and the `internal` package were there to keep
+hotshelf a dependency-free library with a hidden implementation. In practice they added ceremony (module exports,
+`public`-only-for-wiring classes, two POMs) and even caused a bug: `HotshelfBuilder.evictionPolicy(...)` took an enum
+from an unexported package, so module-path users couldn't call it. The author wants a normal, neat Java project that
+runs as a Spring Boot app.
+
+**Decision.**
+- One Maven module whose parent is `spring-boot-starter-parent`. `HotshelfApplication` is the Spring Boot entry point.
+- No `module-info.java`. No `internal` package.
+- Packages are grouped by concern under `io.github.sayanth_ranjith.hotshelf`:
+  - root: the API (`Cache`, `Hotshelf`, `HotshelfBuilder`) and `HotshelfApplication`
+  - `cache`: implementations (`LocalCache`, later `ConcurrentCache`)
+  - `eviction`: `EvictionPolicy`, its implementations, `EvictionPolicyType` and `EvictionPolicyFactory`
+  - `config`: Spring `@Configuration` classes
+  - later: `expiry`, `stats`, ...
+- The cache classes stay plain Java with no Spring annotations. Spring only creates and wires them in `config`.
+
+**Rejected.**
+- *Keep the library layout and fix only the enum.* Correct, but the author wants less ceremony while learning.
+- *Make `LocalCache` implement Spring's `Cache` directly.* Ties the cache logic to Spring and pulls v3 work forward.
+
+**Consequences.** Implementation classes used across packages (`LocalCache`, `NoEvictionPolicy`, `EvictionPolicyFactory`)
+are `public`, so nothing stops callers using them directly. "Use `Hotshelf.builder()` and the `Cache` interface" is now a
+convention, not something the compiler enforces. Keeping Spring out of the cache classes means they stay testable
+without a Spring context. The v3 roadmap still applies; the Spring integration grows inside this project instead of a
+separate starter module.

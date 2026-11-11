@@ -6,7 +6,7 @@ It also applies to any other contributor working on **hotshelf**.
 
 ## What this project is
 
-hotshelf is a **learn-by-building** in-memory caching library for Java 21, with Spring Boot integration planned later.
+hotshelf is a **learn-by-building** in-memory cache for Java 21, in a single Spring Boot project (ADR-009).
 The author (Sayanth) is a backend developer who knows caching at the "check the cache, else hit the DB" level
 and knows Redis keeps data in RAM. **The point of the project is understanding how caches work inside**, not just
 shipping working code. So:
@@ -34,7 +34,7 @@ shipping working code. So:
 
 ## Build and test
 
-- **Java 21 is required** (`<java.version>21</java.version>` in the parent `pom.xml`). JDK 17 cannot build it.
+- **Java 21 is required** (`<java.version>21</java.version>` in `pom.xml`). JDK 17 cannot build it.
   - JDK 21 lives at `%USERPROFILE%\.jdks\ms-21.0.7`. The user-level `JAVA_HOME` points there, and `mvnw` uses `JAVA_HOME`.
   - The **system** PATH still starts with Oracle's `javapath` (JDK 17), so a bare `java -version` may print 17. That doesn't affect Maven.
   - IntelliJ's project SDK (`ms-21`) applies only to IntelliJ's own runners. Its Terminal tab inherits Windows env vars
@@ -46,20 +46,20 @@ shipping working code. So:
 - CI: `.github/workflows/ci.yml` runs `./mvnw verify` on JDK 21 and 25 for every push to `main` and every PR,
   then publishes per-test results (a "Test report" check on the PR, and a summary table on the run page) and
   uploads the raw Surefire XML as an artifact. Keep the build green on both JDKs.
-- After iteration 00 the build is multi-module. To build or test only the core module, add `-pl hotshelf-core`.
+- Run the app: `.\mvnw.cmd spring-boot:run`.
 
 ## Current state vs target architecture
 
-**Today** (after iteration 00) the build is a plain parent POM (`hotshelf-parent`, not Spring Boot's parent) with one
-module, `hotshelf-core`: plain Java 21, zero runtime dependencies (ADR-001), JUnit 5 and AssertJ for tests only.
-Plugin and test-library versions are pinned in the parent. No cache code exists yet; `BuildSanityTest` is the only test.
-Check `git log` and the README roadmap checkboxes to see which iterations have landed.
+**Today** (iteration 02, ADR-009) the build is one Maven module whose parent is `spring-boot-starter-parent` (Spring Boot 4.1).
+Dependencies: `spring-boot-starter`, and `spring-boot-starter-test` (JUnit 5, AssertJ) for tests. No `module-info.java`.
+`Cache`, `Hotshelf.builder()`, `LocalCache`, the `EvictionPolicy` Strategy with LRU, and an example `Cache` bean
+in `config.CacheConfig` exist. Check `git log` and the README roadmap checkboxes to see which iterations have landed.
 
 **Target v1 design.** Each piece arrives in the iteration shown and is described in `docs/iterations/`:
-- `Cache<K, V>` is the public interface (01). `LocalCache` (in `internal`) is the single-threaded implementation.
+- `Cache<K, V>` is the public interface (01). `cache.LocalCache` is the single-threaded implementation.
   A shared abstract **contract test** suite runs against every implementation.
-- `Hotshelf.builder()` is the fluent **Builder** and the only way to get a cache (02). It replaces the temporary `Hotshelf.newCache()`.
-- `EvictionPolicy` is a **Strategy** (02). LRU is O(1): a `HashMap` plus a hand-written doubly linked list.
+- `Hotshelf.builder()` is the fluent **Builder** and the way to get a cache (02).
+- `EvictionPolicy` is a **Strategy** (02). LRU is O(1), backed by `LinkedHashMap` in access order (ADR-008).
   FIFO and LFU are added in v2 without changing `LocalCache`, which is the OCP test.
 - TTL is lazy, checked on read, and uses an injected `Ticker` that reads `System.nanoTime` (03, ADR-004).
 - Thread safety is a `ConcurrentCache` **Decorator** around the single-threaded cache, holding one `ReentrantLock` (04).
@@ -67,20 +67,24 @@ Check `git log` and the README roadmap checkboxes to see which iterations have l
   Segmented locking comes in v2 (iteration 11).
 - Stats use a **Null Object** recorder when stats are disabled, and `CacheStats` is an immutable snapshot (05).
 - `get(key, loader)` does single-flight loading to prevent stampedes (06).
-- v3 adds `hotshelf-spring-boot-starter`, which adapts hotshelf to Spring's `CacheManager`. v4 adds an L1 + Redis L2 layer.
+- v3 adapts hotshelf to Spring's `CacheManager` so `@Cacheable` works. v4 adds an L1 + Redis L2 layer.
 
 ## Code conventions
 
-- Root package: `io.github.sayanth_ranjith.hotshelf`.
-- The **core library has zero runtime dependencies**: no Spring, no Guava. Spring lives only in the future starter module.
-- Keep the public API small: interfaces, the `Hotshelf` entry point, value types (ADR-005).
-  - `io.github.sayanth_ranjith.hotshelf` is the API package and the only one `module-info.java` exports.
-  - `io.github.sayanth_ranjith.hotshelf.internal` holds implementations. A class there is `public` only when another
-    package must reach it (e.g. `Hotshelf` creating `LocalCache`); otherwise package-private.
+- Root package: `io.github.sayanth_ranjith.hotshelf`. Packages are grouped by concern (ADR-009):
+  - root: the API (`Cache`, `Hotshelf`, `HotshelfBuilder`) and `HotshelfApplication`
+  - `cache`: cache implementations (`LocalCache`, later `ConcurrentCache`)
+  - `eviction`: `EvictionPolicy`, its implementations, `EvictionPolicyType`, `EvictionPolicyFactory`
+  - `config`: Spring `@Configuration` classes
+  - new concerns get their own package when they arrive (`expiry`, `stats`, ...)
   - Package names are all lowercase; the hyphen in the GitHub name becomes `_` (`sayanth_ranjith`).
+- **Cache classes are plain Java**: no Spring annotations or imports outside `config` and `HotshelfApplication`.
+  Spring only creates and wires them, so they stay testable without a Spring context.
+- Application code gets caches from `Hotshelf.builder()` and depends on the `Cache` interface, not on `LocalCache`.
 - `null` keys and values are rejected with `NullPointerException`. "Absent" is expressed with `Optional`.
 - Time is never read directly. Use the `Ticker` abstraction so tests can control time. **No `Thread.sleep` in tests.**
-- Tests: JUnit 5 and AssertJ. Every behaviour in an iteration's definition of done has a test.
+- Tests: JUnit 5 and AssertJ. Every behaviour in an iteration's definition of done has a test. Cache logic is tested
+  with plain unit tests; `@SpringBootTest` is only for checking the wiring.
 - Concurrency code must say in a comment which lock guards which state.
 
 ## Git workflow
