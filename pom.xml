@@ -3,14 +3,19 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<!-- Parent POM: shared versions, plugins and Java level. No code lives here. -->
-	<groupId>io.github.sayanth-ranjith</groupId>
-	<artifactId>hotshelf-parent</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<packaging>pom</packaging>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.2</version>
+		<relativePath/>
+	</parent>
 
-	<name>hotshelf (parent)</name>
-	<description>A lightweight in-memory caching library for Java, built from scratch to understand how caches work.</description>
+	<groupId>io.github.sayanth-ranjith</groupId>
+	<artifactId>hotshelf</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<name>hotshelf</name>
+	<description>A lightweight in-memory cache for Java, built from scratch to understand how caches work.</description>
 	<url>https://github.com/sayanth-ranjith/hotshelf</url>
 
 	<licenses>
@@ -36,62 +41,29 @@
 		<tag>HEAD</tag>
 	</scm>
 
-	<modules>
-		<module>hotshelf-core</module>
-	</modules>
-
 	<properties>
 		<java.version>21</java.version>
-		<maven.compiler.release>${java.version}</maven.compiler.release>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-
-		<junit.version>5.13.4</junit.version>
-		<assertj.version>3.27.7</assertj.version>
-
-		<maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
-		<maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
-		<maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
 	</properties>
 
-	<!-- Versions only. A module still has to declare a dependency to get it. -->
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.junit</groupId>
-				<artifactId>junit-bom</artifactId>
-				<version>${junit.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-			<dependency>
-				<groupId>org.assertj</groupId>
-				<artifactId>assertj-core</artifactId>
-				<version>${assertj.version}</version>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
-
-	<build>
-		<pluginManagement>
-			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-compiler-plugin</artifactId>
-					<version>${maven-compiler-plugin.version}</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-surefire-plugin</artifactId>
-					<version>${maven-surefire-plugin.version}</version>
-				</plugin>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-jar-plugin</artifactId>
-					<version>${maven-jar-plugin.version}</version>
-				</plugin>
-			</plugins>
-		</pluginManagement>
-	</build>
+	<!--
+		hotshelf is a library: users must not get Spring just by depending on it.
+		Every dependency stays test-scoped until the Spring auto-configuration arrives (v3), which will use
+		<optional>true</optional>. No spring-boot-maven-plugin: it would repackage this jar into an
+		executable app that other projects cannot depend on.
+	-->
+	<dependencies>
+		<!-- For the demo app in src/test that shows hotshelf used as a Spring bean. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- JUnit 5, AssertJ and Spring's test support. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
 </project>

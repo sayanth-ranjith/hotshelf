@@ -29,7 +29,7 @@ working and tested, with one new concept added.
 
 | # | Iteration | Ideas |
 |---|---|---|
-| 12 | Starter module and auto-configuration | `hotshelf-spring-boot-starter`, `@AutoConfiguration`, `@ConfigurationProperties`, conditional beans |
+| 12 | Auto-configuration | `@AutoConfiguration`, `@ConfigurationProperties`, conditional beans |
 | 13 | Spring Cache abstraction | **Adapter** pattern: implement Spring's `CacheManager` / `Cache` on top of hotshelf so `@Cacheable`, `@CachePut` and `@CacheEvict` work |
 | 14 | Micrometer metrics | Exposing `CacheStats` as meters, and why stats were designed as a snapshot value object back in iteration 05 |
 

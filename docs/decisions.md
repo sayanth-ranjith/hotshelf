@@ -6,7 +6,7 @@ Add a new entry instead of rewriting an old one; mark an old entry *Superseded b
 ---
 
 ## ADR-001: The core library has no Spring (or any) runtime dependency
-**Status:** Accepted (iteration 00)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** The project was generated from Spring Initializr, so the single module depends on Spring Boot and has a
 `main` method. A cache *library* gets embedded in other people's apps. Forcing Spring on them is a heavy, version-conflicting dependency.
@@ -58,7 +58,7 @@ and is not affected by wall-clock changes such as NTP sync or daylight saving.
 ---
 
 ## ADR-005: API package plus an unexported `internal` package
-**Status:** Accepted (iteration 01)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** Users should depend only on the API (`Cache`, `Hotshelf`), never on implementation classes, so we can
 rewrite them in every iteration. With everything in one package, `LocalCache` can be package-private. Once the
@@ -106,7 +106,7 @@ commit SHA if supply-chain hardening matters later.
 ---
 
 ## ADR-007: Eviction code lives in `internal.eviction`
-**Status:** Accepted (iteration 02)
+**Status:** Superseded by ADR-009 (iteration 02)
 
 **Context.** Iteration 01 said a sub-package such as `internal.eviction` is created only once it holds several classes.
 Iteration 02 adds `EvictionPolicy`, `NoEvictionPolicy` and soon `LruEvictionPolicy`, with FIFO and LFU to follow in
@@ -143,3 +143,34 @@ out of sync. Kept as an optional deep dive (iteration 02 "Later").
 **Consequences.** Steps 4 to 6 of the iteration 02 plan are dropped, including the differential test, which would
 only compare `LinkedHashMap` with itself. Because `LocalCache` depends only on `EvictionPolicy` (DIP), the hand-written
 version can replace this one later without touching `LocalCache`.
+
+---
+
+## ADR-009: One plain library module on Spring Boot's build, no JPMS, packages by concern
+**Status:** Accepted (iteration 02). Supersedes ADR-001, ADR-005 and ADR-007.
+
+**Context.** The parent POM + `hotshelf-core` module, `module-info.java` and the `internal` package added ceremony
+(module exports, `public`-only-for-wiring classes, two POMs) and even caused a bug: `HotshelfBuilder.evictionPolicy(...)`
+took an enum from an unexported package, so module-path users couldn't call it. The author wants a normal, neat,
+Spring-based Java project that is still a **library** other applications depend on.
+
+**Decision.**
+- One Maven module whose parent is `spring-boot-starter-parent`, for Spring-managed versions of plugins and test libraries.
+- It builds a **plain library jar**: no `spring-boot-maven-plugin` (it would repackage the jar into an executable app
+  that nobody can depend on) and no `main` class.
+- **Zero runtime dependencies.** Spring is test-scoped. A Spring Boot demo app (`demo.DemoApplication`) lives in
+  `src/test` and shows hotshelf used as a bean, without being shipped. When Spring auto-configuration arrives (v3),
+  Spring becomes an `<optional>` dependency, so users who don't use Spring never get it.
+- No `module-info.java`. No `internal` package. Packages are grouped by concern under `io.github.sayanth_ranjith.hotshelf`:
+  root = API (`Cache`, `Hotshelf`, `HotshelfBuilder`), `cache` = implementations, `eviction` = policies; later `expiry`, `stats`, ...
+
+**Rejected.**
+- *A Spring Boot application with `spring-boot-starter` as a compile dependency and a `@Configuration` in main sources.*
+  Tried first. The jar was repackaged (classes under `BOOT-INF/`), every user would inherit Spring Boot, and a user's
+  component scan could pick up our `@Configuration` and register beans they never asked for. Libraries plug into Spring
+  through auto-configuration, which users can see and override.
+- *Keep the multi-module + JPMS layout and fix only the enum.* Correct, but the author wants less ceremony while learning.
+
+**Consequences.** Classes used across packages (`LocalCache`, `NoEvictionPolicy`, `EvictionPolicyFactory`) are `public`.
+"Use `Hotshelf.builder()` and the `Cache` interface" is a convention, not compiler-enforced. The roadmap's v3 Spring
+integration grows inside this module (optional dependency + auto-configuration) instead of a separate starter.
