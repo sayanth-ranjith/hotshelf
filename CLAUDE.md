@@ -46,14 +46,15 @@ shipping working code. So:
 - CI: `.github/workflows/ci.yml` runs `./mvnw verify` on JDK 21 and 25 for every push to `main` and every PR,
   then publishes per-test results (a "Test report" check on the PR, and a summary table on the run page) and
   uploads the raw Surefire XML as an artifact. Keep the build green on both JDKs.
-- Run the app: `.\mvnw.cmd spring-boot:run`.
+- The build produces a plain library jar (`target/hotshelf-*.jar`), not an executable app.
 
 ## Current state vs target architecture
 
-**Today** (iteration 02, ADR-009) the build is one Maven module whose parent is `spring-boot-starter-parent` (Spring Boot 4.1).
-Dependencies: `spring-boot-starter`, and `spring-boot-starter-test` (JUnit 5, AssertJ) for tests. No `module-info.java`.
+**Today** (iteration 02, ADR-009) hotshelf is a **library**: one Maven module whose parent is `spring-boot-starter-parent`
+(Spring Boot 4.1), built as a plain jar with **zero runtime dependencies**. `spring-boot-starter` and `spring-boot-starter-test`
+(JUnit 5, AssertJ) are test-scoped. No `module-info.java`, no `spring-boot-maven-plugin`.
 `Cache`, `Hotshelf.builder()`, `LocalCache`, the `EvictionPolicy` Strategy with LRU, and an example `Cache` bean
-in `config.CacheConfig` exist. Check `git log` and the README roadmap checkboxes to see which iterations have landed.
+in the test-only `demo.DemoApplication` exist. Check `git log` and the README roadmap checkboxes to see which iterations have landed.
 
 **Target v1 design.** Each piece arrives in the iteration shown and is described in `docs/iterations/`:
 - `Cache<K, V>` is the public interface (01). `cache.LocalCache` is the single-threaded implementation.
@@ -72,14 +73,14 @@ in `config.CacheConfig` exist. Check `git log` and the README roadmap checkboxes
 ## Code conventions
 
 - Root package: `io.github.sayanth_ranjith.hotshelf`. Packages are grouped by concern (ADR-009):
-  - root: the API (`Cache`, `Hotshelf`, `HotshelfBuilder`) and `HotshelfApplication`
+  - root: the API (`Cache`, `Hotshelf`, `HotshelfBuilder`)
   - `cache`: cache implementations (`LocalCache`, later `ConcurrentCache`)
   - `eviction`: `EvictionPolicy`, its implementations, `EvictionPolicyType`, `EvictionPolicyFactory`
-  - `config`: Spring `@Configuration` classes
   - new concerns get their own package when they arrive (`expiry`, `stats`, ...)
   - Package names are all lowercase; the hyphen in the GitHub name becomes `_` (`sayanth_ranjith`).
-- **Cache classes are plain Java**: no Spring annotations or imports outside `config` and `HotshelfApplication`.
-  Spring only creates and wires them, so they stay testable without a Spring context.
+- **It is a library**: no `main` class, no `@Configuration` or `@Component` in `src/main`, and no runtime dependency.
+  Spring stays test-scoped until v3 adds auto-configuration with Spring as an `<optional>` dependency (ADR-009).
+  Spring-based examples go in `src/test` (see `demo.DemoApplication`).
 - Application code gets caches from `Hotshelf.builder()` and depends on the `Cache` interface, not on `LocalCache`.
 - `null` keys and values are rejected with `NullPointerException`. "Absent" is expressed with `Optional`.
 - Time is never read directly. Use the `Ticker` abstraction so tests can control time. **No `Thread.sleep` in tests.**

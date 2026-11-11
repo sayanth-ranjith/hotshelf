@@ -45,12 +45,19 @@
 		<java.version>21</java.version>
 	</properties>
 
+	<!--
+		hotshelf is a library: users must not get Spring just by depending on it.
+		Every dependency stays test-scoped until the Spring auto-configuration arrives (v3), which will use
+		<optional>true</optional>. No spring-boot-maven-plugin: it would repackage this jar into an
+		executable app that other projects cannot depend on.
+	-->
 	<dependencies>
+		<!-- For the demo app in src/test that shows hotshelf used as a Spring bean. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
+			<scope>test</scope>
 		</dependency>
-
 		<!-- JUnit 5, AssertJ and Spring's test support. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -58,14 +65,5 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
 
 </project>

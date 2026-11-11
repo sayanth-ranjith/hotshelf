@@ -146,32 +146,31 @@ version can replace this one later without touching `LocalCache`.
 
 ---
 
-## ADR-009: One Spring Boot project, no JPMS, packages by concern
+## ADR-009: One plain library module on Spring Boot's build, no JPMS, packages by concern
 **Status:** Accepted (iteration 02). Supersedes ADR-001, ADR-005 and ADR-007.
 
-**Context.** The parent POM + `hotshelf-core` module, `module-info.java` and the `internal` package were there to keep
-hotshelf a dependency-free library with a hidden implementation. In practice they added ceremony (module exports,
-`public`-only-for-wiring classes, two POMs) and even caused a bug: `HotshelfBuilder.evictionPolicy(...)` took an enum
-from an unexported package, so module-path users couldn't call it. The author wants a normal, neat Java project that
-runs as a Spring Boot app.
+**Context.** The parent POM + `hotshelf-core` module, `module-info.java` and the `internal` package added ceremony
+(module exports, `public`-only-for-wiring classes, two POMs) and even caused a bug: `HotshelfBuilder.evictionPolicy(...)`
+took an enum from an unexported package, so module-path users couldn't call it. The author wants a normal, neat,
+Spring-based Java project that is still a **library** other applications depend on.
 
 **Decision.**
-- One Maven module whose parent is `spring-boot-starter-parent`. `HotshelfApplication` is the Spring Boot entry point.
-- No `module-info.java`. No `internal` package.
-- Packages are grouped by concern under `io.github.sayanth_ranjith.hotshelf`:
-  - root: the API (`Cache`, `Hotshelf`, `HotshelfBuilder`) and `HotshelfApplication`
-  - `cache`: implementations (`LocalCache`, later `ConcurrentCache`)
-  - `eviction`: `EvictionPolicy`, its implementations, `EvictionPolicyType` and `EvictionPolicyFactory`
-  - `config`: Spring `@Configuration` classes
-  - later: `expiry`, `stats`, ...
-- The cache classes stay plain Java with no Spring annotations. Spring only creates and wires them in `config`.
+- One Maven module whose parent is `spring-boot-starter-parent`, for Spring-managed versions of plugins and test libraries.
+- It builds a **plain library jar**: no `spring-boot-maven-plugin` (it would repackage the jar into an executable app
+  that nobody can depend on) and no `main` class.
+- **Zero runtime dependencies.** Spring is test-scoped. A Spring Boot demo app (`demo.DemoApplication`) lives in
+  `src/test` and shows hotshelf used as a bean, without being shipped. When Spring auto-configuration arrives (v3),
+  Spring becomes an `<optional>` dependency, so users who don't use Spring never get it.
+- No `module-info.java`. No `internal` package. Packages are grouped by concern under `io.github.sayanth_ranjith.hotshelf`:
+  root = API (`Cache`, `Hotshelf`, `HotshelfBuilder`), `cache` = implementations, `eviction` = policies; later `expiry`, `stats`, ...
 
 **Rejected.**
-- *Keep the library layout and fix only the enum.* Correct, but the author wants less ceremony while learning.
-- *Make `LocalCache` implement Spring's `Cache` directly.* Ties the cache logic to Spring and pulls v3 work forward.
+- *A Spring Boot application with `spring-boot-starter` as a compile dependency and a `@Configuration` in main sources.*
+  Tried first. The jar was repackaged (classes under `BOOT-INF/`), every user would inherit Spring Boot, and a user's
+  component scan could pick up our `@Configuration` and register beans they never asked for. Libraries plug into Spring
+  through auto-configuration, which users can see and override.
+- *Keep the multi-module + JPMS layout and fix only the enum.* Correct, but the author wants less ceremony while learning.
 
-**Consequences.** Implementation classes used across packages (`LocalCache`, `NoEvictionPolicy`, `EvictionPolicyFactory`)
-are `public`, so nothing stops callers using them directly. "Use `Hotshelf.builder()` and the `Cache` interface" is now a
-convention, not something the compiler enforces. Keeping Spring out of the cache classes means they stay testable
-without a Spring context. The v3 roadmap still applies; the Spring integration grows inside this project instead of a
-separate starter module.
+**Consequences.** Classes used across packages (`LocalCache`, `NoEvictionPolicy`, `EvictionPolicyFactory`) are `public`.
+"Use `Hotshelf.builder()` and the `Cache` interface" is a convention, not compiler-enforced. The roadmap's v3 Spring
+integration grows inside this module (optional dependency + auto-configuration) instead of a separate starter.
