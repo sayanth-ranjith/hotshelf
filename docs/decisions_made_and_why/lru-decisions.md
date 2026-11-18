@@ -16,6 +16,7 @@
 8. [Java implementation](#8-java-implementation)
 9. [Why LinkedHashMap was the right choice](#9-why-linkedhashmap-was-the-right-choice)
 10. [Caveats](#10-caveats)
+11. [Quick revision](#quick-revision)
 
 ---
 
@@ -28,7 +29,7 @@ It needs three operations, and all of them should be **O(1)**:
 | # | Operation | Meaning | Question it answers |
 |---|---|---|---|
 | 1 | **Find by key** | `get(key)` returns the value fast | *Where* is key X? |
-| 2 | **Mark as recently used** | Every read or write makes the key "newest" | Move X to the front of the queue |
+| 2 | **Mark as recently used** | Every read or write makes the key "newest" | Move X to the newest end (tail) of the queue |
 | 3 | **Evict the oldest** | When full, remove the least recently used entry | *Who* has waited longest? |
 
 ---
@@ -46,18 +47,20 @@ A `HashMap` stores entries in an **array** of buckets. To find a key, it does no
   hash("C") = 0x5A3F...           <- one calculation
       |
       v
-  index = hash & (table.length - 1) = 2
+  index = hash & (table.length - 1) = 2     (table.length = 8, so the mask is 0b111)
       |
       v
    table[2]                         <- one array access (random access)
 
-   index:   0       1       2       3       4       5
-         +-------+-------+-------+-------+-------+-------+
- table:  |  -    |  A    |  C    |  -    |  B    |  D    |
-         +-------+-------+-------+-------+-------+-------+
+   index:   0       1       2       3       4       5       6       7
+         +-------+-------+-------+-------+-------+-------+-------+-------+
+ table:  |  -    |  A    |  C    |  -    |  B    |  D    |  -    |  -    |
+         +-------+-------+-------+-------+-------+-------+-------+-------+
                            ^
                            +-- jumped straight here, nothing else checked
 ```
+
+> `HashMap` always keeps `table.length` a power of two, so `hash & (length - 1)` is a cheap way to compute `hash % length`.
 
 **Why the jump is possible:** array slots sit **side by side in memory**, so `table[i]` is just
 `base address + i x slot size`. One multiplication, one memory read.
@@ -294,7 +297,9 @@ sequenceDiagram
 
 ## 8. Java implementation
 
-### Using LinkedHashMap (production)
+### Textbook version: extending LinkedHashMap
+
+This is the version you see in most articles. The map **is** the cache and evicts by itself.
 
 ```java
 import java.util.LinkedHashMap;
@@ -319,10 +324,47 @@ public class LRUCache<K, V> extends LinkedHashMap<K, V> {
 
 | Hook | What it does |
 |---|---|
-| `accessOrder = true` (3rd constructor arg) | `get()` and `put()` call `afterNodeAccess()`, which moves the entry to the **tail** |
-| `removeEldestEntry(...)` | Runs after each insertion. "Eldest" = **head** = least recently used. Return `true` to evict it |
+| `accessOrder = true` (3rd constructor arg) | `get()`, and `put()` on a key that is already present, call `afterNodeAccess()`, which moves the entry to the **tail**. A `put()` of a new key is appended at the tail anyway |
+| `removeEldestEntry(...)` | Runs after each insertion of a **new** key. "Eldest" = **head** = least recently used. Return `true` to evict it |
 
 > **Watch out:** the default is `accessOrder = false`, which keeps **insertion order**. That gives you a **FIFO** cache, not LRU: reading a key would not save it from eviction.
+
+> **Sizing note:** `initialCapacity` is the bucket count, not the entry limit. With load factor 0.75, a table of `capacity` buckets resizes once it holds `0.75 x capacity` entries. Harmless, but if you want to avoid that one resize, pass `(int) Math.ceil(capacity / 0.75)`.
+
+### How hotshelf uses it: composition, not inheritance
+
+hotshelf does **not** extend `LinkedHashMap` and does **not** use `removeEldestEntry` (ADR-008). Eviction is a
+**Strategy** (`EvictionPolicy`), and `LruEvictionPolicy` **wraps** a `LinkedHashMap` that tracks key order only:
+
+```java
+// eviction/LruEvictionPolicy.java (simplified)
+final class LruEvictionPolicy<K> implements EvictionPolicy<K> {
+
+    // accessOrder = true: get/put of a present key moves it to the tail
+    private final LinkedHashMap<K, Boolean> order = new LinkedHashMap<>(16, 0.75f, true);
+
+    public void recordInsert(K key) { order.put(key, Boolean.TRUE); }  // new key -> tail
+    public void recordAccess(K key) { order.get(key); }                // touch -> tail
+    public void recordRemoval(K key) { order.remove(key); }
+
+    public Optional<K> victim() {                                      // head = LRU
+        return order.isEmpty() ? Optional.empty() : Optional.of(order.firstEntry().getKey());
+    }
+}
+```
+
+`LocalCache` owns the values and the capacity. When it is full, it asks the policy for `victim()` and removes that key
+from both places. (`firstEntry()` is from Java 21's `SequencedMap`.)
+
+| Choice | Why |
+|---|---|
+| **Wrap, don't extend** (composition) | Extending would expose every `Map` method (`putAll`, `entrySet().remove`, ...) as part of the policy. Wrapping keeps the surface to the four calls the cache needs |
+| **Policy picks the victim, cache evicts** (SRP) | The policy only answers "who is oldest?". Capacity and removal stay in one place, `LocalCache` |
+| **No `removeEldestEntry`** (OCP) | That hook bakes LRU into the map. With a Strategy, FIFO and LFU (v2) plug in without changing `LocalCache` |
+| **Values are a `Boolean` placeholder** | Only the key order matters here. The real values live in the cache |
+
+The cost is that each key is stored in two maps (the cache's and the policy's). That is still O(1) per operation, and
+it is the price of keeping eviction swappable.
 
 ### Hand-built version (interviews)
 
@@ -352,6 +394,7 @@ public class LRUCacheManual<K, V> {
     private final Node<K, V> tail = new Node<>(null, null); // dummy: newest side
 
     public LRUCacheManual(int capacity) {
+        if (capacity <= 0) throw new IllegalArgumentException("capacity must be > 0");
         this.capacity = capacity;
         head.next = tail;
         tail.prev = head;
@@ -401,6 +444,8 @@ public class LRUCacheManual<K, V> {
 ```
 
 > **Why does `Node` store the key?** When you evict the head, you must also remove it from the map, and `map.remove()` needs the key.
+>
+> **Why reject `capacity <= 0`?** With capacity 0, `head.next` is the dummy tail, and unlinking it throws `NullPointerException`.
 
 ---
 
@@ -409,17 +454,21 @@ public class LRUCacheManual<K, V> {
 1. **It already is the ideal structure.** Hash table + doubly linked list is the textbook O(1) LRU design, and the JDK ships it.
 2. **All three operations are O(1)**: lookup, move to newest, and evict oldest.
 3. **One node per entry.** The hash entry doubles as the list node, so there are no parallel structures to keep in sync and less memory overhead than a separate `HashMap<K, Node>` plus a list.
-4. **Built-in eviction hook.** `removeEldestEntry` lets you set the eviction policy with a single line.
+4. **Cheap "who is oldest?"** `firstEntry()` returns the head in O(1), which is exactly what `victim()` needs. (Code that owns the map outright can use the `removeEldestEntry` hook instead; hotshelf doesn't, see section 8.)
 5. **Battle-tested.** You get JDK-tested code instead of hand-written pointer manipulation, where off-by-one and null-link bugs are common.
+
+**Rejected:** the hand-written `HashMap<K, Node>` + doubly linked list. Same O(1) complexity, but more code and more ways
+for the map and list to drift out of sync. It stays as an optional deep dive (ADR-008, iteration 02 "Later").
 
 ---
 
 ## 10. Caveats
 
 - **Not thread-safe.** With `accessOrder = true`, even `get()` is a *structural modification* because it relinks nodes. Two threads calling `get()` at the same time can corrupt the list.
-  - Quick fix: `Collections.synchronizedMap(new LRUCache<>(n))`. Note that this puts a single lock around everything.
-  - For high concurrency, use **Caffeine**, which avoids a global lock (it uses buffered access recording and the Window TinyLFU policy).
-- **Iterating while accessing:** with `accessOrder = true`, calling `get()` inside a loop over the map changes the order and throws `ConcurrentModificationException`.
+  - Quick fix: `Collections.synchronizedMap(new LRUCache<>(n))`. Note that this puts a single lock around everything, and you still have to lock manually while iterating.
+  - This is also why a **read/write lock does not help**: a "read" (`get`) writes to the list. hotshelf's plan is a `ConcurrentCache` Decorator with one `ReentrantLock` (iteration 04, ADR-003).
+  - For high concurrency, use **Caffeine**, which avoids a global lock by buffering access records and replaying them later. Note that Caffeine evicts with **Window TinyLFU**, not strict LRU.
+- **Iterating while accessing:** with `accessOrder = true`, calling `get()` on the map inside a loop over it changes the order and throws `ConcurrentModificationException`.
 
 ---
 
@@ -434,4 +483,5 @@ public class LRUCacheManual<K, V> {
 | Why doubly linked | `before` pointer lets you unlink without searching for the predecessor |
 | LinkedHashMap | Hash entry **is** the list node, so you find it in O(1) and move/evict in O(1) |
 | `accessOrder = true` | Makes it LRU (default `false` = FIFO) |
-| `removeEldestEntry` | Return `size() > capacity` to evict the head |
+| `removeEldestEntry` | Return `size() > capacity` to evict the head (textbook version) |
+| hotshelf's `LruEvictionPolicy` | Wraps the map (composition); `victim()` = `firstEntry()`; `LocalCache` does the evicting |
